@@ -75,14 +75,15 @@ Without either option, alerts appear in Maritime logs and remain available from 
 
 ### 5. Add an hourly cron trigger
 
-Configure a Maritime cron trigger to call:
+In the Maritime dashboard, open the agent's **Triggers** section and add an hourly cron trigger. The trigger wakes the sleeping agent; the app's internal scheduler then runs any due check within one minute.
+
+The equivalent CLI command is:
 
 ```text
-POST https://YOUR-AGENT-URL/v1/tick
-Authorization: Bearer YOUR_MONITOR_TOKEN
+maritime triggers create maritime-name-watch --type cron --cron "17 * * * *"
 ```
 
-Run it hourly. Duplicate ticks are safe. The process also checks once a minute while awake, but the external trigger is what wakes a sleeping agent.
+The `:17` offset avoids the busiest top-of-hour minute. Duplicate wakeups are safe. Use the authenticated `/v1/tick` endpoint only for a manual test or an external scheduler.
 
 ## Configuration
 
