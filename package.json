@@ -1,6 +1,6 @@
 {
   "name": "maritime-name-watch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A small Maritime-hosted bot that finds new name mentions, scores sentiment, and reports the change over time.",
   "type": "module",
   "license": "MIT",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.mjs",
     "test": "node --test",
-    "check": "node --check src/index.mjs"
+    "check": "node --check src/index.mjs && node --check scripts/codex-mcp-server.mjs"
   },
   "keywords": [
     "maritime",

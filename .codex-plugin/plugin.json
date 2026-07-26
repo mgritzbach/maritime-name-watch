@@ -1,0 +1,41 @@
+{
+  "name": "maritime-name-watch",
+  "version": "0.2.0",
+  "description": "Configure, deploy, and operate a Maritime-hosted personal name monitor entirely from Codex.",
+  "author": {
+    "name": "Michael Gritzbach",
+    "url": "https://github.com/mgritzbach"
+  },
+  "homepage": "https://github.com/mgritzbach/maritime-name-watch",
+  "repository": "https://github.com/mgritzbach/maritime-name-watch",
+  "license": "MIT",
+  "keywords": [
+    "maritime",
+    "name-monitor",
+    "reputation-monitoring",
+    "sentiment",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Maritime Name Watch",
+    "shortDescription": "Run a personal name monitor from Codex.",
+    "longDescription": "Give Codex your identity details and preferences, then configure, safely deploy, test, and operate a Maritime-only name monitoring agent without opening another application.",
+    "developerName": "Michael Gritzbach",
+    "category": "Productivity",
+    "capabilities": [
+      "Guided setup",
+      "Maritime deployment",
+      "Mention monitoring",
+      "Sentiment trends"
+    ],
+    "websiteURL": "https://github.com/mgritzbach/maritime-name-watch",
+    "defaultPrompt": [
+      "Set up my Maritime name monitor.",
+      "Show my latest name mentions.",
+      "Change my name-watch preferences."
+    ],
+    "brandColor": "#0E7490"
+  }
+}

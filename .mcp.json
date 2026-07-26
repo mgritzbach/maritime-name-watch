@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "maritime-name-watch": {
+      "cwd": ".",
+      "command": "node",
+      "args": [
+        "./scripts/codex-mcp-server.mjs"
+      ],
+      "env_vars": [
+        "MARITIME_NAME_WATCH_CONFIG_DIR"
+      ],
+      "tool_timeout_sec": 360
+    }
+  }
+}

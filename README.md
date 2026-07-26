@@ -9,6 +9,33 @@ A small, self-hosted name-monitoring bot for [Maritime](https://maritime.sh/). I
 
 It has zero npm dependencies and never calls OpenAI, Anthropic, OpenRouter, or another model provider directly. The model endpoint is hardcoded to Maritime's proxy.
 
+## Use it entirely from Codex
+
+Install this repository as a Codex plugin:
+
+```text
+https://github.com/mgritzbach/maritime-name-watch
+```
+
+Then start a new Codex task and say:
+
+```text
+Set up my Maritime name monitor.
+```
+
+Codex will collect your name, aliases, identity context, exclusions, cadence, usage ceiling, and alert preference. It saves only non-secret profile data locally, performs a read-only Maritime preflight, and asks for explicit prepaid-credit confirmation before deployment.
+
+The plugin provides Codex tools to:
+
+- save and update your matching preferences;
+- check Maritime authentication without leaving Codex;
+- create a limited Maritime automation key for future browserless operation;
+- deploy with hard compute and model-call limits;
+- configure Telegram or webhook credentials directly in Maritime's encrypted environment;
+- run an immediate check, inspect sentiment history, view status, and pause the agent.
+
+No deletion tool is included. Notification credentials and Maritime keys are never stored in the local preference profile.
+
 ## What it looks like
 
 ```text
@@ -148,7 +175,7 @@ Mentions with less than 20 total positive-plus-negative points are treated as ne
 - When the daily cap is reached, new candidates remain queued.
 - Maritime account budgets and auto-stop remain the authoritative protection when prepaid credits run out.
 
-This project does not create accounts, purchase credits, enable billing, or deploy itself.
+The monitoring service never creates accounts, purchases credits, or enables billing. The optional Codex plugin can deploy only after explicit prepaid-only confirmation and a hard compute cap.
 
 ## Local development
 
