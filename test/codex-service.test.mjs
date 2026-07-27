@@ -56,6 +56,17 @@ class FakeMaritime {
     if (args[0] === "triggers" && args[1] === "create") return { id: "trigger-1" };
     if (args[0] === "env" && args[1] === "import") return { ok: true };
     if (args[0] === "restart") return { ok: true };
+    if (args[0] === "info") {
+      return {
+        agent: {
+          id: "agent-1",
+          name: "maritime-name-watch",
+          status: "active",
+          framework: "custom"
+        }
+      };
+    }
+    if (args[0] === "--json" && args[1] === "exec") return { stdout: JSON.stringify({ ok: true }) };
     throw new Error(`Unexpected fake Maritime command: ${command}`);
   }
 }
@@ -86,6 +97,7 @@ test("saves only non-secret profile data and runs a read-only preflight", async 
   const { service, maritime, profileStore } = await configuredService();
   const profile = await profileStore.read();
   assert.equal(profile.name, "Jane Doe");
+  assert.equal(profile.discoveryMode, "full_search");
   assert.equal(profile.checksPerDay, 24);
   assert.equal(profile.destinationEmail, "alerts@example.com");
   const preferences = await service.getPreferences();
@@ -159,6 +171,7 @@ test("confirmed deployment pins repository, limits, Maritime LLM, and hourly tri
   assert.ok(create.args.includes(REPOSITORY_URL));
   assert.ok(create.args.includes("--max-compute"));
   assert.ok(create.args.some((arg) => arg.startsWith("MONITOR_TOKEN=")));
+  assert.ok(create.args.includes("DISCOVERY_MODE=full_search"));
   assert.equal(create.args.some((arg) => /ANTHROPIC|OPENROUTER/.test(arg)), false);
   assert.ok(maritime.calls.some((call) => (
     call.args[0] === "triggers" && call.args[1] === "create" && call.args.includes("17 * * * *")
@@ -186,4 +199,31 @@ test("notification credentials are sent to Maritime but not added to the profile
   const imported = maritime.calls.find((call) => call.args[0] === "env" && call.args[1] === "import");
   assert.match(imported.input, /TELEGRAM_BOT_TOKEN=telegram-secret/);
   assert.equal(JSON.stringify(await profileStore.read()).includes("telegram-secret"), false);
+});
+
+test("remote API calls terminate Maritime option parsing before Node flags", async () => {
+  const { service, maritime } = await configuredService();
+  maritime.created = true;
+
+  const status = await service.status({});
+  const triggered = await service.triggerNow({});
+  const mentions = await service.mentions({});
+
+  assert.deepEqual(status.monitor, { ok: true });
+  assert.deepEqual(triggered.result, { ok: true });
+  assert.deepEqual(mentions, { ok: true });
+
+  const execCalls = maritime.calls.filter((call) => call.args[0] === "--json" && call.args[1] === "exec");
+  assert.equal(execCalls.length, 3);
+  for (const call of execCalls) {
+    assert.deepEqual(call.args.slice(0, 6), [
+      "--json",
+      "exec",
+      "maritime-name-watch",
+      "--",
+      "node",
+      "-e"
+    ]);
+    assert.notEqual(call.args.at(-1), "--json");
+  }
 });

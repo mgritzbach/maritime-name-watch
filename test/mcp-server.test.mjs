@@ -43,6 +43,7 @@ test("Codex MCP server advertises the complete Name Watch workflow", async (cont
     "destinationEmail"
   ]);
   assert.equal(intake.inputSchema.properties.contextTerms.minItems, 2);
+  assert.deepEqual(intake.inputSchema.properties.discoveryMode.enum, ["full_search", "rss"]);
   for (const expected of [
     "name_watch_save_preferences",
     "name_watch_preflight",

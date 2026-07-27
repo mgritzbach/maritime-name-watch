@@ -1,21 +1,30 @@
 import { parseFeed } from "./rss.mjs";
+import { parseDuckDuckGoHtml } from "./web-search.mjs";
 
 export async function discoverMentions(config, fetchImpl = fetch) {
   const candidates = [];
   const errors = [];
 
-  for (const feedUrl of config.rssUrls) {
+  const sources = config.discoveryMode === "rss"
+    ? config.rssUrls.map((url) => ({ url, parse: parseFeed }))
+    : config.fullSearchUrls.map((url) => ({ url, parse: parseDuckDuckGoHtml }));
+
+  for (const source of sources) {
     try {
-      const response = await fetchWithTimeout(feedUrl, config.limits.fetchTimeoutMs, fetchImpl);
+      const response = await fetchWithTimeout(source.url, config.limits.fetchTimeoutMs, fetchImpl);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const xml = await response.text();
-      candidates.push(...parseFeed(xml, feedUrl).slice(0, config.limits.maxResultsPerFeed));
+      const body = await response.text();
+      const parsed = source.parse(body, source.url);
+      candidates.push(...parsed.slice(0, config.limits.maxResultsPerFeed));
     } catch (error) {
-      errors.push({ feedUrl, error: error.message });
+      errors.push({ sourceUrl: source.url, error: error.message });
     }
   }
 
-  return { candidates: candidates.filter((candidate) => prefilter(candidate, config.profile)), errors };
+  return {
+    candidates: candidates.filter((candidate) => prefilter(candidate, config.profile)),
+    errors
+  };
 }
 
 export function prefilter(candidate, profile) {

@@ -307,7 +307,10 @@ export class NameWatchCodexService {
   }
 
   async #waitForAgent(agentName) {
-    for (let attempt = 0; attempt < 48; attempt += 1) {
+    // GitHub-backed Maritime builds can spend substantial time waiting for a
+    // build worker and target-runtime handoff. Keep this below the MCP tool
+    // timeout while allowing a full 45-minute deployment window.
+    for (let attempt = 0; attempt < 540; attempt += 1) {
       const agents = await this.maritime.run(["list", "--json"]);
       const agent = Array.isArray(agents) ? agents.find((entry) => entry.name === agentName) : null;
       if (!agent) throw new Error(`Maritime agent ${agentName} disappeared during deployment`);
@@ -318,7 +321,7 @@ export class NameWatchCodexService {
       }
       await this.sleep(5_000);
     }
-    throw new Error("Maritime deployment did not finish within four minutes");
+    throw new Error("Maritime deployment did not finish within 45 minutes");
   }
 
   async #remoteApi(agentName, path, method = "GET") {
@@ -331,7 +334,8 @@ export class NameWatchCodexService {
       "process.stdout.write(text)",
       "})().catch(error=>{console.error(error.message);process.exit(1)})"
     ].join("");
-    const result = await this.maritime.run(["exec", agentName, "node", "-e", script, "--json"]);
+    // Put the global JSON flag before the command and terminate Maritime's option parsing.
+    const result = await this.maritime.run(["--json", "exec", agentName, "--", "node", "-e", script]);
     return unwrapExecJson(result);
   }
 }
@@ -351,13 +355,14 @@ function normalizeProfile(input, existing, now) {
     input.checksPerDay ?? existing?.checksPerDay ?? legacyChecksPerDay(existing?.cadenceMinutes)
   );
   const profile = {
-    version: 2,
+    version: 3,
     agentName: validateAgentName(input.agentName ?? existing?.agentName ?? "maritime-name-watch"),
     name,
     aliases: stringList(input.aliases ?? existing?.aliases ?? []),
     contextTerms,
     excludeTerms: stringList(input.excludeTerms ?? existing?.excludeTerms ?? []),
     requireContext: boolean(input.requireContext, existing?.requireContext ?? false),
+    discoveryMode: discoveryMode(input.discoveryMode ?? existing?.discoveryMode ?? "full_search"),
     checksPerDay,
     maxAnalysesPerDay: integer(input.maxAnalysesPerDay ?? existing?.maxAnalysesPerDay, "maxAnalysesPerDay", 1, 24),
     destinationEmail: emailAddress(input.destinationEmail ?? existing?.destinationEmail),
@@ -376,6 +381,7 @@ function environmentPairs(profile, monitorToken) {
     `WATCH_CONTEXT=${profile.contextTerms.join(",")}`,
     `EXCLUDE_TERMS=${profile.excludeTerms.join(",")}`,
     `REQUIRE_CONTEXT=${profile.requireContext}`,
+    `DISCOVERY_MODE=${profile.discoveryMode}`,
     `CHECKS_PER_DAY=${profile.checksPerDay}`,
     `MAX_ANALYSES_PER_DAY=${profile.maxAnalysesPerDay}`,
     `MAX_NEW_PER_RUN=${profile.maxNewPerRun}`,
@@ -475,6 +481,14 @@ function safeDeploy(deploy) {
     completedAt: deploy.completedAt ?? null,
     error: String(deploy.errorMessage ?? deploy.errorTitle ?? "").slice(0, 500) || null
   };
+}
+
+function discoveryMode(value) {
+  const mode = singleLine(value, "discoveryMode").toLocaleLowerCase();
+  if (!["full_search", "rss"].includes(mode)) {
+    throw new Error("discoveryMode must be full_search or rss");
+  }
+  return mode;
 }
 
 function validateAgentName(value) {

@@ -19,6 +19,8 @@ Do not infer, default, save, preflight, or deploy until all seven fields are exp
 
 Call `name_watch_save_preferences` only after the intake is complete. Pass `none` as an empty array for aliases or exclusions. Do not put notification credentials into the profile.
 
+Discovery mode is optional and defaults to `full_search`. Accept `full_search` or `rss`; do not add it to the seven required intake fields. `full_search` sends the watched name and aliases to DuckDuckGo HTML search. `rss` uses configured RSS/Atom feeds or Google News RSS when none are supplied.
+
 The destination email is saved as the requested notification target. Maritime currently documents outbound Gmail only through a separately connected OpenClaw Google integration; this custom repository has no documented Maritime-native outbound-email API. Do not claim email delivery is configured merely because the address was saved.
 
 ## Deployment workflow
@@ -49,7 +51,7 @@ The destination email is saved as the requested notification target. Maritime cu
 - Notification credentials go directly to Maritime's encrypted environment store and are not persisted by the plugin.
 - A durable Maritime automation key, when explicitly requested, is stored by the Maritime CLI and never returned by the plugin.
 - The deployed application accepts only Maritime's LLM proxy. Never request or configure OpenAI, Anthropic, OpenRouter, or another model-provider key.
-- Do not promise whole-internet coverage. The default source is Google News RSS; additional RSS/Atom feeds can be configured.
+- Do not promise whole-internet coverage. The default `full_search` mode uses DuckDuckGo HTML search; `rss` mode uses configured RSS/Atom feeds with Google News RSS as its fallback.
 - Treat a common name without context terms as a likely false-positive risk and tell the user.
 - Summaries and sentiment are probabilistic. Report identity and sentiment confidence.
 

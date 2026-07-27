@@ -1,6 +1,6 @@
 # Maritime Name Watch
 
-A small, self-hosted name-monitoring bot for [Maritime](https://maritime.sh/). It checks RSS/news search results on your chosen daily schedule, analyzes only unseen results with the included Maritime LLM, and reports:
+A small, self-hosted name-monitoring bot for [Maritime](https://maritime.sh/). It checks full-web search results or RSS/Atom feeds on your chosen daily schedule, analyzes only unseen results with the included Maritime LLM, and reports:
 
 - what the new appearance says;
 - the new mention's positive/negative sentiment;
@@ -126,13 +126,16 @@ Copy [`.env.example`](.env.example) for all options.
 | `EXCLUDE_TERMS` | empty | Comma-separated terms that always reject a result |
 | `REQUIRE_CONTEXT` | `false` | Reject results with no matching context before model analysis |
 | `CHECKS_PER_DAY` | `24` | Checks per day: 1, 2, 3, 4, 6, 8, 12, or 24 |
+| `DISCOVERY_MODE` | `full_search` | `full_search` for keyless web search or `rss` for RSS/Atom only |
 | `MAX_NEW_PER_RUN` | `10` | Candidates analyzed in one run; maximum 25 |
 | `MAX_ANALYSES_PER_DAY` | `8` | Hard daily model-call limit; maximum 24 |
 | `MARITIME_LLM_MODEL` | `gpt-4o-mini` | Model requested from Maritime |
-| `RSS_URL_1`…`RSS_URL_5` | Google News search | Optional RSS or Atom feeds |
+| `RSS_URL_1`…`RSS_URL_5` | empty | RSS-mode feeds; Google News RSS is the RSS-mode fallback |
 | `STATE_PATH` | `/data/state.json` in Docker | Persistent mention history |
 
-If no RSS URL is supplied, the app generates a Google News RSS query for the exact name, up to three context terms, and the previous day. This is useful but cannot guarantee coverage of the whole internet. Add specialized RSS feeds for industry publications or other important sources.
+`full_search` is the default. It sends the exact watched name and aliases to DuckDuckGo's keyless HTML search endpoint, then applies local exclusions, optional context filtering, deduplication, and Maritime LLM identity validation. Search-result pages may omit or reorder results over time.
+
+In `rss` mode, configured RSS/Atom feeds are used. If none are supplied, the app generates a Google News RSS query for the exact name, up to three context terms, and the previous day. Neither mode guarantees whole-internet coverage.
 
 ## API
 

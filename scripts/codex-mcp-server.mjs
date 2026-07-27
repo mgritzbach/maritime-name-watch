@@ -79,6 +79,7 @@ function toolDefinitions() {
           contextTerms: { type: "array", minItems: 2, items: { type: "string" } },
           excludeTerms: stringArray,
           requireContext: { type: "boolean" },
+          discoveryMode: { enum: ["full_search", "rss"] },
           checksPerDay: { enum: [1, 2, 3, 4, 6, 8, 12, 24] },
           maxAnalysesPerDay: { type: "integer", minimum: 1, maximum: 24 },
           destinationEmail: { type: "string", format: "email" },

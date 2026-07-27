@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { duckDuckGoSearchUrl, FULL_SEARCH_PROVIDER } from "./web-search.mjs";
 
 export const MARITIME_LLM_BASE_URL = "https://api.maritime.sh/api/llm/v1";
 
@@ -11,6 +12,7 @@ export function configFromEnv(env = process.env) {
   const aliases = unique([name, ...list(env.WATCH_ALIASES)]);
   const contextTerms = unique(list(env.WATCH_CONTEXT));
   const checksPerDay = checksPerDayValue(env.CHECKS_PER_DAY, env.CHECK_EVERY_MINUTES);
+  const discoveryMode = discoveryModeValue(env.DISCOVERY_MODE);
   const rssUrls = [1, 2, 3, 4, 5]
     .map((number) => clean(env[`RSS_URL_${number}`]))
     .filter(Boolean);
@@ -30,6 +32,9 @@ export function configFromEnv(env = process.env) {
       model: clean(env.MARITIME_LLM_MODEL) || "gpt-4o-mini",
       maxOutputTokens: integer(env.MAX_OUTPUT_TOKENS, 220, 100, 300)
     },
+    discoveryMode,
+    fullSearchProvider: FULL_SEARCH_PROVIDER,
+    fullSearchUrls: aliases.slice(0, 5).map(duckDuckGoSearchUrl),
     rssUrls: rssUrls.length ? rssUrls : [googleNewsRssUrl(name, contextTerms)],
     limits: {
       checksPerDay,
@@ -60,6 +65,14 @@ export function googleNewsRssUrl(name, contextTerms = []) {
   url.searchParams.set("gl", "US");
   url.searchParams.set("ceid", "US:en");
   return url.toString();
+}
+
+function discoveryModeValue(value) {
+  const mode = clean(value || "full_search").toLocaleLowerCase();
+  if (!["full_search", "rss"].includes(mode)) {
+    throw new Error("DISCOVERY_MODE must be full_search or rss");
+  }
+  return mode;
 }
 
 function checksPerDayValue(value, legacyMinutes) {

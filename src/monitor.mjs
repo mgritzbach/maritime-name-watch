@@ -55,6 +55,7 @@ export class NameMonitor {
   async status() {
     const state = await this.store.read();
     const mentions = Object.values(state.mentions);
+    const discoveryMode = this.config.discoveryMode ?? "rss";
     return {
       ok: true,
       monitoredName: this.config.profile.name,
@@ -68,6 +69,11 @@ export class NameMonitor {
       },
       overall: aggregateMentions(mentions),
       maritimeLlmConfigured: Boolean(this.config.llm.token),
+      discovery: {
+        mode: discoveryMode,
+        provider: discoveryMode === "full_search" ? this.config.fullSearchProvider : "rss",
+        sources: discoveryMode === "full_search" ? (this.config.fullSearchUrls?.length ?? 0) : (this.config.rssUrls?.length ?? 0)
+      },
       limits: this.config.limits,
       recentRuns: state.recentRuns.slice(0, 5)
     };

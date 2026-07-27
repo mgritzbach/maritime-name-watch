@@ -9,7 +9,7 @@
       "env_vars": [
         "MARITIME_NAME_WATCH_CONFIG_DIR"
       ],
-      "tool_timeout_sec": 360
+      "tool_timeout_sec": 3000
     }
   }
 }
