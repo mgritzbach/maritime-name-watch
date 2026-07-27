@@ -1,6 +1,6 @@
 # Maritime Name Watch
 
-A small, self-hosted name-monitoring bot for [Maritime](https://maritime.sh/). It checks RSS/news search results once an hour, analyzes only unseen results with the included Maritime LLM, and reports:
+A small, self-hosted name-monitoring bot for [Maritime](https://maritime.sh/). It checks RSS/news search results on your chosen daily schedule, analyzes only unseen results with the included Maritime LLM, and reports:
 
 - what the new appearance says;
 - the new mention's positive/negative sentiment;
@@ -17,13 +17,13 @@ Install this repository as a Codex plugin:
 https://github.com/mgritzbach/maritime-name-watch
 ```
 
-Then start a new Codex task and say:
+Give Codex the link and ask it to install and use the plugin. In the new task, setup starts with one seven-field prompt—no defaults and no preflight until every field is present:
 
 ```text
-Set up my Maritime name monitor.
+Full name | aliases/usernames | 2+ context terms (company, city, profession, website) | exclusion terms | checks per day | maximum analyses per day | destination email
 ```
 
-Codex will collect your name, aliases, identity context, exclusions, cadence, usage ceiling, and alert preference. It saves only non-secret profile data locally, performs a read-only Maritime preflight, and asks for explicit prepaid-credit confirmation before deployment.
+Write `none` for aliases or exclusions when applicable. Checks per day must be `1, 2, 3, 4, 6, 8, 12, or 24`; maximum analyses per day is 1–24. Codex saves only non-secret profile data locally, performs a read-only Maritime preflight, and asks for explicit prepaid-credit confirmation before deployment.
 
 The plugin provides Codex tools to:
 
@@ -100,11 +100,13 @@ NOTIFY_WEBHOOK_TOKEN=optional-bearer-token
 
 Without either option, alerts appear in Maritime logs and remain available from the authenticated mentions endpoint.
 
-### 5. Add an hourly cron trigger
+The onboarding profile also requires a destination email so the intended recipient is explicit. That address is not treated as proof of working email delivery: Maritime documents outbound Gmail through a separately connected OpenClaw Google integration, but it does not document a native outbound-email API for custom repository agents. The plugin reports this limitation instead of silently falling back to logs or claiming the email is configured.
 
-In the Maritime dashboard, open the agent's **Triggers** section and add an hourly cron trigger. The trigger wakes the sleeping agent; the app's internal scheduler then runs any due check within one minute.
+### 5. Add the matching cron trigger
 
-The equivalent CLI command is:
+In the Maritime dashboard, open the agent's **Triggers** section and add a cron matching the chosen checks per day. The Codex plugin does this automatically and supports evenly spaced schedules from once daily through hourly. The trigger wakes the sleeping agent only when a check is due.
+
+For 24 checks per day, the equivalent CLI command is:
 
 ```text
 maritime triggers create maritime-name-watch --type cron --cron "17 * * * *"
@@ -123,7 +125,7 @@ Copy [`.env.example`](.env.example) for all options.
 | `WATCH_CONTEXT` | empty | Employer, city, occupation, username, or other identity clues |
 | `EXCLUDE_TERMS` | empty | Comma-separated terms that always reject a result |
 | `REQUIRE_CONTEXT` | `false` | Reject results with no matching context before model analysis |
-| `CHECK_EVERY_MINUTES` | `60` | Discovery cadence; minimum 30 |
+| `CHECKS_PER_DAY` | `24` | Checks per day: 1, 2, 3, 4, 6, 8, 12, or 24 |
 | `MAX_NEW_PER_RUN` | `10` | Candidates analyzed in one run; maximum 25 |
 | `MAX_ANALYSES_PER_DAY` | `8` | Hard daily model-call limit; maximum 24 |
 | `MARITIME_LLM_MODEL` | `gpt-4o-mini` | Model requested from Maritime |

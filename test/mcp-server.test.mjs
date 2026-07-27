@@ -30,7 +30,19 @@ test("Codex MCP server advertises the complete Name Watch workflow", async (cont
   }
   const messages = output.trim().split("\n").filter(Boolean).map(JSON.parse);
   assert.equal(messages[0].result.serverInfo.name, "maritime-name-watch");
-  const names = messages[1].result.tools.map((tool) => tool.name);
+  const tools = messages[1].result.tools;
+  const names = tools.map((tool) => tool.name);
+  const intake = tools.find((tool) => tool.name === "name_watch_save_preferences");
+  assert.deepEqual(intake.inputSchema.required, [
+    "name",
+    "aliases",
+    "contextTerms",
+    "excludeTerms",
+    "checksPerDay",
+    "maxAnalysesPerDay",
+    "destinationEmail"
+  ]);
+  assert.equal(intake.inputSchema.properties.contextTerms.minItems, 2);
   for (const expected of [
     "name_watch_save_preferences",
     "name_watch_preflight",

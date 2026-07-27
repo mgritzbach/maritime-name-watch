@@ -74,8 +74,9 @@ async function configuredService() {
     aliases: ["J. Doe"],
     contextTerms: ["Acme", "Seattle"],
     excludeTerms: ["football"],
-    cadenceMinutes: 60,
+    checksPerDay: 24,
     maxAnalysesPerDay: 8,
+    destinationEmail: "alerts@example.com",
     maxNewPerRun: 10
   });
   return { service, maritime, profileStore };
@@ -85,6 +86,10 @@ test("saves only non-secret profile data and runs a read-only preflight", async 
   const { service, maritime, profileStore } = await configuredService();
   const profile = await profileStore.read();
   assert.equal(profile.name, "Jane Doe");
+  assert.equal(profile.checksPerDay, 24);
+  assert.equal(profile.destinationEmail, "alerts@example.com");
+  const preferences = await service.getPreferences();
+  assert.equal(preferences.emailDelivery.configured, false);
   assert.equal(JSON.stringify(profile).includes("token"), false);
   const result = await service.preflight({});
   assert.equal(result.ready, true);
@@ -96,6 +101,38 @@ test("saves only non-secret profile data and runs a read-only preflight", async 
   ]);
 });
 
+test("first setup refuses defaults, weak context, and invalid destination email", async () => {
+  const service = new NameWatchCodexService({
+    profileStore: new MemoryProfileStore(),
+    maritime: new FakeMaritime()
+  });
+  await assert.rejects(() => service.savePreferences({
+    name: "Jane Doe",
+    aliases: [],
+    contextTerms: ["Acme", "Seattle"],
+    excludeTerms: [],
+    maxAnalysesPerDay: 8,
+    destinationEmail: "alerts@example.com"
+  }), /checksPerDay is required/);
+  await assert.rejects(() => service.savePreferences({
+    name: "Jane Doe",
+    aliases: [],
+    contextTerms: ["Acme"],
+    excludeTerms: [],
+    checksPerDay: 24,
+    maxAnalysesPerDay: 8,
+    destinationEmail: "not-an-email"
+  }), /at least two identity clues/);
+  await assert.rejects(() => service.savePreferences({
+    name: "Jane Doe",
+    aliases: [],
+    contextTerms: ["Acme", "Seattle"],
+    excludeTerms: [],
+    checksPerDay: 24,
+    maxAnalysesPerDay: 8,
+    destinationEmail: "not-an-email"
+  }), /valid email address/);
+});
 test("deployment refuses missing financial confirmation", async () => {
   const { service, maritime } = await configuredService();
   await assert.rejects(() => service.deploy({

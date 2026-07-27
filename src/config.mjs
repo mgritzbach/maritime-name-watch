@@ -10,6 +10,7 @@ export function configFromEnv(env = process.env) {
 
   const aliases = unique([name, ...list(env.WATCH_ALIASES)]);
   const contextTerms = unique(list(env.WATCH_CONTEXT));
+  const checksPerDay = checksPerDayValue(env.CHECKS_PER_DAY, env.CHECK_EVERY_MINUTES);
   const rssUrls = [1, 2, 3, 4, 5]
     .map((number) => clean(env[`RSS_URL_${number}`]))
     .filter(Boolean);
@@ -31,7 +32,8 @@ export function configFromEnv(env = process.env) {
     },
     rssUrls: rssUrls.length ? rssUrls : [googleNewsRssUrl(name, contextTerms)],
     limits: {
-      checkEveryMinutes: integer(env.CHECK_EVERY_MINUTES, 60, 30, 1_440),
+      checksPerDay,
+      checkEveryMinutes: 1_440 / checksPerDay,
       maxNewPerRun: integer(env.MAX_NEW_PER_RUN, 10, 1, 25),
       maxAnalysesPerDay: integer(env.MAX_ANALYSES_PER_DAY, 8, 1, 24),
       maxResultsPerFeed: integer(env.MAX_RESULTS_PER_FEED, 25, 1, 50),
@@ -60,6 +62,19 @@ export function googleNewsRssUrl(name, contextTerms = []) {
   return url.toString();
 }
 
+function checksPerDayValue(value, legacyMinutes) {
+  if (value != null && value !== "") {
+    const checks = integer(value, 24, 1, 24);
+    if (![1, 2, 3, 4, 6, 8, 12, 24].includes(checks)) {
+      throw new Error("CHECKS_PER_DAY must be one of 1, 2, 3, 4, 6, 8, 12, or 24");
+    }
+    return checks;
+  }
+  const minutes = integer(legacyMinutes, 60, 60, 1_440);
+  const checks = 1_440 / minutes;
+  if (!Number.isInteger(checks)) throw new Error("CHECK_EVERY_MINUTES must divide evenly into one day");
+  return checks;
+}
 function clean(value) {
   return String(value ?? "").trim();
 }

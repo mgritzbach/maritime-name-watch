@@ -1,6 +1,6 @@
 {
   "name": "maritime-name-watch",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Configure, deploy, and operate a Maritime-hosted personal name monitor entirely from Codex.",
   "author": {
     "name": "Michael Gritzbach",
@@ -32,7 +32,7 @@
     ],
     "websiteURL": "https://github.com/mgritzbach/maritime-name-watch",
     "defaultPrompt": [
-      "Set up my Maritime name monitor.",
+      "Start setup and ask me for all seven required fields before doing anything else.",
       "Show my latest name mentions.",
       "Change my name-watch preferences."
     ],

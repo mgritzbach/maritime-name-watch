@@ -23,15 +23,22 @@ export class NameWatchCodexService {
     return {
       saved: true,
       profile: publicProfile(profile),
-      privacy: "Stored locally in the Codex profile directory. No credentials are stored."
+      privacy: "Stored locally in the Codex profile directory. No credentials are stored.",
+      emailDelivery: emailDeliveryStatus(profile.destinationEmail)
     };
   }
 
   async getPreferences() {
     const profile = await this.profileStore.read();
-    return profile
-      ? { configured: true, profile: publicProfile(profile) }
-      : { configured: false, next: "Provide a full name and identity context." };
+    const missing = missingProfileFields(profile);
+    return profile && missing.length === 0
+      ? { configured: true, profile: publicProfile(profile), emailDelivery: emailDeliveryStatus(profile.destinationEmail) }
+      : {
+          configured: false,
+          profile: profile ? publicProfile(profile) : null,
+          missing,
+          next: "Provide all seven onboarding fields before setup continues."
+        };
   }
 
   async preflight({ agentName } = {}) {
@@ -50,6 +57,7 @@ export class NameWatchCodexService {
         expiresAt: identity.expiresAt ?? null
       },
       profile: publicProfile(profile),
+      emailDelivery: emailDeliveryStatus(profile.destinationEmail),
       targetAgent: target,
       existingAgent: existing ? safeAgent(existing) : null,
       repository: REPOSITORY_URL,
@@ -157,7 +165,7 @@ export class NameWatchCodexService {
     if (!envKeys.has("OPENAI_API_KEY") && !envKeys.has("MARITIME_LLM_TOKEN")) {
       throw new Error("The agent was created, but Maritime did not inject its LLM proxy token. No external provider fallback is allowed.");
     }
-    await this.#ensureCron(agentName);
+    await this.#ensureCron(agentName, profile.checksPerDay);
     return {
       deployed: true,
       agent: safeAgent(finalAgent),
@@ -166,9 +174,10 @@ export class NameWatchCodexService {
         computeMinutes: maxComputeMinutes,
         analysesPerDay: profile.maxAnalysesPerDay,
         newPerRun: profile.maxNewPerRun,
-        cadenceMinutes: profile.cadenceMinutes
+        checksPerDay: profile.checksPerDay
       },
       maritimeOnly: true,
+      emailDelivery: emailDeliveryStatus(profile.destinationEmail),
       monitorTokenStoredOnlyInMaritime: true,
       next: "Call name_watch_trigger_now, then name_watch_status and name_watch_mentions."
     };
@@ -180,6 +189,7 @@ export class NameWatchCodexService {
     await this.#requireExistingAgent(target);
     await this.#importEnvironment(target, environmentPairs(profile));
     if (restart) await this.maritime.run(["restart", target, "--json"]);
+    await this.#ensureCron(target, profile.checksPerDay);
     return {
       applied: true,
       agentName: target,
@@ -276,12 +286,13 @@ export class NameWatchCodexService {
     return existing;
   }
 
-  async #ensureCron(agentName) {
+  async #ensureCron(agentName, checksPerDay) {
+    const cron = cronForChecksPerDay(checksPerDay);
     const triggers = await this.maritime.run(["triggers", "list", agentName, "--json"]);
-    const hasHourly = Array.isArray(triggers) && triggers.some((trigger) => (
-      trigger.type === "cron" && (trigger.cron === "17 * * * *" || trigger.schedule === "17 * * * *")
+    const hasSchedule = Array.isArray(triggers) && triggers.some((trigger) => (
+      trigger.type === "cron" && (trigger.cron === cron || trigger.schedule === cron)
     ));
-    if (!hasHourly) {
+    if (!hasSchedule) {
       await this.maritime.run([
         "triggers",
         "create",
@@ -289,7 +300,7 @@ export class NameWatchCodexService {
         "--type",
         "cron",
         "--cron",
-        "17 * * * *",
+        cron,
         "--json"
       ]);
     }
@@ -328,17 +339,28 @@ export class NameWatchCodexService {
 export { MemoryProfileStore };
 
 function normalizeProfile(input, existing, now) {
+  if (!existing) {
+    for (const field of ["name", "aliases", "contextTerms", "excludeTerms", "checksPerDay", "maxAnalysesPerDay", "destinationEmail"]) {
+      if (!(field in input)) throw new Error(`${field} is required for first-time setup`);
+    }
+  }
   const name = singleLine(input.name ?? existing?.name, "name");
+  const contextTerms = stringList(input.contextTerms ?? existing?.contextTerms ?? []);
+  if (contextTerms.length < 2) throw new Error("contextTerms must contain at least two identity clues");
+  const checksPerDay = supportedChecksPerDay(
+    input.checksPerDay ?? existing?.checksPerDay ?? legacyChecksPerDay(existing?.cadenceMinutes)
+  );
   const profile = {
-    version: 1,
+    version: 2,
     agentName: validateAgentName(input.agentName ?? existing?.agentName ?? "maritime-name-watch"),
     name,
     aliases: stringList(input.aliases ?? existing?.aliases ?? []),
-    contextTerms: stringList(input.contextTerms ?? existing?.contextTerms ?? []),
+    contextTerms,
     excludeTerms: stringList(input.excludeTerms ?? existing?.excludeTerms ?? []),
     requireContext: boolean(input.requireContext, existing?.requireContext ?? false),
-    cadenceMinutes: integer(input.cadenceMinutes ?? existing?.cadenceMinutes ?? 60, "cadenceMinutes", 30, 1_440),
-    maxAnalysesPerDay: integer(input.maxAnalysesPerDay ?? existing?.maxAnalysesPerDay ?? 8, "maxAnalysesPerDay", 1, 24),
+    checksPerDay,
+    maxAnalysesPerDay: integer(input.maxAnalysesPerDay ?? existing?.maxAnalysesPerDay, "maxAnalysesPerDay", 1, 24),
+    destinationEmail: emailAddress(input.destinationEmail ?? existing?.destinationEmail),
     maxNewPerRun: integer(input.maxNewPerRun ?? existing?.maxNewPerRun ?? 10, "maxNewPerRun", 1, 25),
     rssUrls: httpsUrls(input.rssUrls ?? existing?.rssUrls ?? []),
     createdAt: existing?.createdAt ?? now.toISOString(),
@@ -354,7 +376,7 @@ function environmentPairs(profile, monitorToken) {
     `WATCH_CONTEXT=${profile.contextTerms.join(",")}`,
     `EXCLUDE_TERMS=${profile.excludeTerms.join(",")}`,
     `REQUIRE_CONTEXT=${profile.requireContext}`,
-    `CHECK_EVERY_MINUTES=${profile.cadenceMinutes}`,
+    `CHECKS_PER_DAY=${profile.checksPerDay}`,
     `MAX_ANALYSES_PER_DAY=${profile.maxAnalysesPerDay}`,
     `MAX_NEW_PER_RUN=${profile.maxNewPerRun}`,
     "PORT=8787",
@@ -365,6 +387,10 @@ function environmentPairs(profile, monitorToken) {
   ];
 }
 
+function cronForChecksPerDay(checksPerDay) {
+  const everyHours = 24 / supportedChecksPerDay(checksPerDay);
+  return everyHours === 1 ? "17 * * * *" : `17 */${everyHours} * * *`;
+}
 function assertDeploymentConfirmation(input) {
   if (input.confirmation !== DEPLOY_CONFIRMATION) {
     throw new Error(`Deployment requires the exact confirmation: ${DEPLOY_CONFIRMATION}`);
@@ -375,8 +401,51 @@ function assertDeploymentConfirmation(input) {
 }
 
 function requireProfile(profile) {
-  if (!profile) throw new Error("Name Watch preferences have not been configured");
+  const missing = missingProfileFields(profile);
+  if (missing.length) throw new Error(`Name Watch preferences are incomplete; missing: ${missing.join(", ")}`);
   return profile;
+}
+
+function missingProfileFields(profile) {
+  if (!profile) return ["name", "aliases", "contextTerms", "excludeTerms", "checksPerDay", "maxAnalysesPerDay", "destinationEmail"];
+  const missing = [];
+  if (!profile.name) missing.push("name");
+  if (!Array.isArray(profile.aliases)) missing.push("aliases");
+  if (!Array.isArray(profile.contextTerms) || profile.contextTerms.length < 2) missing.push("contextTerms");
+  if (!Array.isArray(profile.excludeTerms)) missing.push("excludeTerms");
+  if (![1, 2, 3, 4, 6, 8, 12, 24].includes(profile.checksPerDay)) missing.push("checksPerDay");
+  if (!Number.isInteger(profile.maxAnalysesPerDay)) missing.push("maxAnalysesPerDay");
+  if (!profile.destinationEmail) missing.push("destinationEmail");
+  return missing;
+}
+
+function supportedChecksPerDay(value) {
+  const checks = integer(value, "checksPerDay", 1, 24);
+  if (![1, 2, 3, 4, 6, 8, 12, 24].includes(checks)) {
+    throw new Error("checksPerDay must be one of 1, 2, 3, 4, 6, 8, 12, or 24");
+  }
+  return checks;
+}
+
+function legacyChecksPerDay(cadenceMinutes) {
+  if (cadenceMinutes == null) return undefined;
+  const checks = 1_440 / Number(cadenceMinutes);
+  return Number.isInteger(checks) ? checks : undefined;
+}
+
+function emailAddress(value) {
+  const email = singleLine(value, "destinationEmail").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("destinationEmail must be a valid email address");
+  return email;
+}
+
+function emailDeliveryStatus(destinationEmail) {
+  return {
+    destinationEmail,
+    configured: false,
+    reason: "Maritime has no documented native outbound-email API for custom repository agents. Saving an address does not configure delivery.",
+    documentedAlternatives: ["Telegram", "HTTPS webhook", "separately connected OpenClaw Gmail integration"]
+  };
 }
 
 function publicProfile(profile) {

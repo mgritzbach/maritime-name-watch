@@ -23,7 +23,7 @@ lines.on("line", async (line) => {
       result = {
         protocolVersion: request.params?.protocolVersion ?? "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "maritime-name-watch", version: "0.2.0" }
+        serverInfo: { name: "maritime-name-watch", version: "0.3.0" }
       };
     } else if (request.method === "tools/list") {
       result = { tools: toolDefinitions() };
@@ -68,19 +68,20 @@ function toolDefinitions() {
   return [
     {
       name: "name_watch_save_preferences",
-      description: "Save non-secret identity matching, cadence, and usage preferences locally for Maritime Name Watch. This does not mutate Maritime.",
+      description: "Save the complete seven-field non-secret onboarding profile locally. Do not call until every required field was explicitly supplied. This does not mutate Maritime or configure email delivery.",
       inputSchema: {
         type: "object",
-        required: ["name"],
+        required: ["name", "aliases", "contextTerms", "excludeTerms", "checksPerDay", "maxAnalysesPerDay", "destinationEmail"],
         properties: {
           name: { type: "string" },
           agentName,
           aliases: stringArray,
-          contextTerms: stringArray,
+          contextTerms: { type: "array", minItems: 2, items: { type: "string" } },
           excludeTerms: stringArray,
           requireContext: { type: "boolean" },
-          cadenceMinutes: { type: "integer", minimum: 30, maximum: 1440 },
+          checksPerDay: { enum: [1, 2, 3, 4, 6, 8, 12, 24] },
           maxAnalysesPerDay: { type: "integer", minimum: 1, maximum: 24 },
+          destinationEmail: { type: "string", format: "email" },
           maxNewPerRun: { type: "integer", minimum: 1, maximum: 25 },
           rssUrls: { type: "array", maxItems: 5, items: { type: "string", pattern: "^https://" } }
         }
