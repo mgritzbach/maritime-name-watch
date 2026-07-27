@@ -290,7 +290,8 @@ export class NameWatchCodexService {
     const cron = cronForChecksPerDay(checksPerDay);
     const triggers = await this.maritime.run(["triggers", "list", agentName, "--json"]);
     const hasSchedule = Array.isArray(triggers) && triggers.some((trigger) => (
-      trigger.type === "cron" && (trigger.cron === cron || trigger.schedule === cron)
+      trigger.type === "cron"
+      && (trigger.cron === cron || trigger.schedule === cron || trigger.config?.cron === cron)
     ));
     if (!hasSchedule) {
       await this.maritime.run([

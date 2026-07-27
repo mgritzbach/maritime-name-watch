@@ -13,6 +13,7 @@ class FakeMaritime {
     this.calls = [];
     this.created = false;
     this.authMethod = "jwt";
+    this.triggers = [];
   }
 
   async run(args, options = {}) {
@@ -52,7 +53,7 @@ class FakeMaritime {
     if (args[0] === "env" && args[1] === "list") {
       return [{ key: "OPENAI_API_KEY", value: "••••" }];
     }
-    if (args[0] === "triggers" && args[1] === "list") return [];
+    if (args[0] === "triggers" && args[1] === "list") return this.triggers;
     if (args[0] === "triggers" && args[1] === "create") return { id: "trigger-1" };
     if (args[0] === "env" && args[1] === "import") return { ok: true };
     if (args[0] === "restart") return { ok: true };
@@ -176,6 +177,23 @@ test("confirmed deployment pins repository, limits, Maritime LLM, and hourly tri
   assert.ok(maritime.calls.some((call) => (
     call.args[0] === "triggers" && call.args[1] === "create" && call.args.includes("17 * * * *")
   )));
+});
+
+test("does not duplicate a cron returned in Maritime's nested config shape", async () => {
+  const { service, maritime } = await configuredService();
+  maritime.created = true;
+  maritime.triggers = [{
+    id: "existing-trigger",
+    type: "cron",
+    config: { cron: "17 * * * *" },
+    enabled: true
+  }];
+
+  await service.applyPreferences({ restart: false });
+
+  assert.equal(maritime.calls.some((call) => (
+    call.args[0] === "triggers" && call.args[1] === "create"
+  )), false);
 });
 
 test("durable auth never returns the raw Maritime key", async () => {
